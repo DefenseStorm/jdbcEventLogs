@@ -1,0 +1,19 @@
+# conf file must be in same directory as script
+
+[json]
+app_name = TestDB
+version = 1.0
+
+[jdbc]
+pid_file = pidfile
+app_path = /usr/local/jdbcEventLogs
+
+# The connection url varies based on the driver you are using and the database you are connecting to
+connection_url =
+# The driver depends on which JDBC driver you are using
+driver = 
+# Path to the Jar file for the driver
+db_jarfile = 
+# Name of the json file that defines the table and fields you want to pull from the database
+db_json_file =  test.json
+

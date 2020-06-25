@@ -1,0 +1,10 @@
+[
+	{
+		"table_name" : "test",
+		"values" : [ "name" ]
+	},
+	{
+		"table_name" : "test2",
+		"values" : [ "othername" ]
+	}
+]
