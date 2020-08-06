@@ -9,7 +9,7 @@ import json
 import time
 import csv
 from random import randrange
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from six import PY2
 
@@ -26,9 +26,6 @@ import jaydebeapi
 
 class integration(object):
 
-    JSON_field_mappings = {
-    }
-
 
     def jdbc_main(self): 
 
@@ -36,15 +33,17 @@ class integration(object):
         # Get JDBC Config info
         try:
             driver = self.ds.config_get('jdbc', 'driver')
-            #db_type = self.ds.config_get('jdbc', 'db_type')
-            #host = self.ds.config_get('jdbc', 'host')
-            #options = self.ds.config_get('jdbc', 'options')
-            #db_name = self.ds.config_get('jdbc', 'db_name')
             db_jarfile = self.ds.config_get('jdbc', 'db_jarfile')
-            #username = self.ds.config_get('jdbc', 'username')
-            #password = self.ds.config_get('jdbc', 'password')
-            self.conn_url = self.ds.config_get('jdbc', 'connection_url')
             db_json_file = self.ds.config_get('jdbc', 'db_json_file')
+            self.conn_url = self.ds.config_get('jdbc','connection_url')
+            self.hostname = self.ds.config_get('jdbc', 'hostname')
+            self.state_dir = self.ds.config_get('jdbc', 'state_dir')
+            self.last_run = self.ds.get_state(state_dir)
+            self.time_format = self.ds.config_get('jdbc', 'time_format')
+            current_time = time.time()
+            if self.last_run == None:
+                self.last_run = (datetime.utcfromtimestamp(60 * ((current_time - 120) // 60))).strftime(self.time_format)
+            self.current_run = (datetime.utcfromtimestamp(current_time)).strftime(self.time_format)
         except Exception as e:
                 traceback.print_exc()
                 self.ds.log("ERROR", "Failed to get required configurations")
@@ -61,19 +60,13 @@ class integration(object):
                 self.ds.log('ERROR', "Exception {0}".format(str(e)))
 
 
-        #self.conn_url = "jdbc:" + db_type + "://" + host + (";" if options !="" else "") + options + ("/" if db_name != "" else "") + db_name
-        #self.conn_url = "jdbc:" + db_type + "://" + host + ("/" if db_name != "" else "") + db_name + (";" if options !="" else "") + options
-        # read files from configured directory to parse
 
         self.ds.log("INFO", "Connection URL: " + self.conn_url)
 
         print(self.conn_url)
 
-        conn = None
-
         try:
-            #conn = jaydebeapi.connect(driver, self.conn_url, [username, password], db_jarfile)
-            conn = jaydebeapi.connect(driver, self.conn_url, [], db_jarfile)
+            conn = jaydebeapi.connect(driver, self.conn_url, [username, password], db_jarfile)
         except Exception as e:
                 traceback.print_exc()
                 self.ds.log("ERROR", "Failed to connect to DB")
@@ -81,16 +74,15 @@ class integration(object):
 
         if conn == None:
             self.ds.log("ERROR", "Error connecting to the DB, no exception")
-            return
         else:
             self.ds.log("INFO", "Successfully connected to DB URL")
 
 
         for entry in db_tables:
             #query = "select " + ','.join(entry['values']) + " from " + entry['table_name']
-            query = "select TOP 10 " + ','.join(entry['values']) + " from " + entry['table_name']
-            query = "select " + ','.join(entry['values']) + " from " + entry['table_name'] + " where " + entry['time_field'] + ' > "' + self.mystate.isoformat() + '" AND ' + entry['time_field'] + ' < "' + self.newstate.isoformat() + '"'
+            query = "select " + ','.join(entry['values']) + " from " + entry['table_name'] + " where " + entry['timestamp'] + " > \"" + self.last_run + "\""
             self.ds.log("INFO", "Query: " + query)
+            print(query)
             curs = conn.cursor()
             curs.execute(query)
             result = []
@@ -99,7 +91,11 @@ class integration(object):
                 result.append(dict(zip(columns,row)))
 
             for item in result:
+                item['timestamp'] = item['CreatedUTC']
+                item['hostname'] = self.hostname
                 self.ds.writeJSONEvent(item)
+
+            self.ds.set_state(self.state_dir, self.current_run)
 
 
         self.ds.log('INFO', "Done Sending Notifications")
@@ -120,7 +116,6 @@ class integration(object):
             traceback.print_exc()
             self.ds.log('ERROR', "Exception {0}".format(str(e)))
             return
-        self.ds.set_state(self.state_dir, self.newstate)
     
     def usage(self):
         print
@@ -168,13 +163,6 @@ class integration(object):
                 self.ds.log('ERROR', 'ERROR: ' + str(e))
             except:
                 pass
-
-        self.state_dir = os.path.join(self.ds.config_get('jdbc', 'app_path'), 'state')
-        self.mystate = self.ds.get_state(self.state_dir)
-        self.newstate = datetime.now()
-        if self.mystate == None:
-            self.mystate = self.newstate - timedelta(0,600)
-
 
 
 if __name__ == "__main__":

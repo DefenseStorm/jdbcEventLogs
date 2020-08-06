@@ -6,14 +6,22 @@ version = 1.0
 
 [jdbc]
 pid_file = pidfile
-app_path = /usr/local/jdbcEventLogs
+state_dir = /usr/local/jdbcEventLogs/state
+# The time format string to use for datetime fields pulled from the DB
+time_format = %Y-%m-%d %H:%M:%S.%f
 
 # The connection url varies based on the driver you are using and the database you are connecting to
 connection_url =
+# The hostname to assign the event to for GRID events
+hostname =
 # The driver depends on which JDBC driver you are using
 driver = 
 # Path to the Jar file for the driver
 db_jarfile = 
+# Username
+username = 
+# Password
+password =
 # Name of the json file that defines the table and fields you want to pull from the database
 db_json_file =  test.json
 
