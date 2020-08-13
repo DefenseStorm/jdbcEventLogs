@@ -37,9 +37,12 @@ class integration(object):
             db_json_file = self.ds.config_get('jdbc', 'db_json_file')
             self.conn_url = self.ds.config_get('jdbc','connection_url')
             self.hostname = self.ds.config_get('jdbc', 'hostname')
+            username = self.ds.config_get('jdbc', 'username')
+            password = self.ds.config_get('jdbc', 'password')
             self.state_dir = self.ds.config_get('jdbc', 'state_dir')
-            self.last_run = self.ds.get_state(state_dir)
-            self.time_format = self.ds.config_get('jdbc', 'time_format')
+            self.last_run = self.ds.get_state(self.state_dir)
+            #self.time_format = self.ds.config_get('jdbc', 'time_format')
+            self.time_format = "%Y-%m-%d %H:%M:%S.%f"
             current_time = time.time()
             if self.last_run == None:
                 self.last_run = (datetime.utcfromtimestamp(60 * ((current_time - 120) // 60))).strftime(self.time_format)
@@ -63,8 +66,6 @@ class integration(object):
 
         self.ds.log("INFO", "Connection URL: " + self.conn_url)
 
-        print(self.conn_url)
-
         try:
             conn = jaydebeapi.connect(driver, self.conn_url, [username, password], db_jarfile)
         except Exception as e:
@@ -79,10 +80,8 @@ class integration(object):
 
 
         for entry in db_tables:
-            #query = "select " + ','.join(entry['values']) + " from " + entry['table_name']
-            query = "select " + ','.join(entry['values']) + " from " + entry['table_name'] + " where " + entry['timestamp'] + " > \"" + self.last_run + "\""
+            query = "select " + ','.join(entry['values']) + " from " + entry['table_name'] + " where " + entry['timestamp'] + " > \'" + self.last_run + "\'"
             self.ds.log("INFO", "Query: " + query)
-            print(query)
             curs = conn.cursor()
             curs.execute(query)
             result = []
@@ -91,7 +90,9 @@ class integration(object):
                 result.append(dict(zip(columns,row)))
 
             for item in result:
-                item['timestamp'] = item['CreatedUTC']
+                datestring,blah = item['CreatedUtc'].split('.')
+                timestamp = datetime.strptime(datestring + '.0+0000', self.time_format + '%z')
+                item['timestamp'] = int(datetime.timestamp(timestamp))
                 item['hostname'] = self.hostname
                 self.ds.writeJSONEvent(item)
 
